@@ -1,4 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define MAX_ROWS 100
+#define MAX_COLS 100
 
 typedef struct
 {
@@ -6,12 +11,26 @@ typedef struct
    int wheat_seed;
 }Seeds;
 
+typedef enum
+{
+    empty, //cod 0
+    waiting, //cod 1
+    ready, //cod 2
+}PlotStatus;
+
+typedef struct
+{
+    char type[21]; //litera corespunzatoare
+    PlotStatus status;
+}SingularPlot;
+
 typedef struct
 {
     int wheatp; //cod 0
     int cornp; //cod 1
-    int cowp; //cod 2
-    int empty; //default
+    int cowp; //cod 2      
+    int emptyp; //default
+    SingularPlot layout[MAX_ROWS][MAX_COLS];
 }Terrain;
 
 typedef struct 
@@ -24,22 +43,69 @@ typedef struct
     int money;
 }Inventory;
 
-Inventory initial()
+Inventory initial() 
 {
     Inventory inventar;
-    
+
     inventar.wheat = 0; 
     inventar.corn = 0;
     inventar.milk = 0;
-    inventar.money = 1;
+    inventar.money = 2;
     inventar.seed.corn_seed = 1;
     inventar.seed.wheat_seed = 1;
     
     inventar.plots.wheatp = 4;
     inventar.plots.cornp = 2;
     inventar.plots.cowp = 3;
-    inventar.plots.empty = 3;
+    inventar.plots.emptyp = 3;
     
+    for(int i = 0; i < 4; i++)
+    {
+        switch(i)
+        {
+            case 0:
+            {
+                for(int j = 0; j < inventar.plots.wheatp; j++)
+                {
+                    inventar.plots.layout[i][j].status = waiting;
+                    strcpy(inventar.plots.layout[i][j].type, "w");
+                }
+            
+                break;
+            }
+            case 1:
+            {
+                for(int j = 0; j < inventar.plots.cornp; j++)
+                {
+                    inventar.plots.layout[i][j].status = waiting;
+                    strcpy(inventar.plots.layout[i][j].type, "c");
+                }
+                
+                break;
+            }
+            case 2:
+            {
+                for(int j = 0; j < inventar.plots.cowp; j++)
+                {
+                    inventar.plots.layout[i][j].status = waiting;
+                    strcpy(inventar.plots.layout[i][j].type, "moo");
+                }
+      
+                break;
+            }
+            default:
+            {
+                for(int j = 0; j < inventar.plots.emptyp; j++)
+                {
+                    inventar.plots.layout[i][j].status = empty;
+                    strcpy(inventar.plots.layout[i][j].type, " ");
+                }
+                
+                break;
+            }
+        }
+    }
+
     return inventar;
 }
 
@@ -58,7 +124,7 @@ void status(const Inventory inventar)
                 if(inventar.plots.wheatp != 0)
                 {
                     for(int j = 0; j < inventar.plots.wheatp; j++)
-                        printf("[W] ");
+                        printf("[%s] ", inventar.plots.layout[i][j].type);
                 }
                 
                 printf("\n");
@@ -70,7 +136,7 @@ void status(const Inventory inventar)
                 if(inventar.plots.cornp != 0)
                 {
                     for(int j = 0; j < inventar.plots.cornp; j++)
-                        printf("[C] ");
+                        printf("[%s] ", inventar.plots.layout[i][j].type);
                 }
                 
                 printf("\n");
@@ -82,7 +148,7 @@ void status(const Inventory inventar)
                 if(inventar.plots.cowp != 0)
                 {
                     for(int j = 0; j < inventar.plots.cowp; j++)
-                        printf("[MOO] ");
+                        printf("[%s] ", inventar.plots.layout[i][j].type);
                 }
                 
                 printf("\n");
@@ -91,8 +157,8 @@ void status(const Inventory inventar)
             }
             default:
             {
-                 for(int j = 0; j < inventar.plots.empty; j++)
-                        printf("[ ] ");
+                 for(int j = 0; j < inventar.plots.emptyp; j++)
+                        printf("[%s] ", inventar.plots.layout[i][j].type);
                         
                 printf("\n");        
                 
@@ -102,24 +168,112 @@ void status(const Inventory inventar)
     }
      
     printf("========================\n");
+    printf("\n");
 }
 
 void water(Inventory *inventar) 
 {
-    int choice;
+    int choice, which, specific, all_or_one = 0;
     
     printf("Which crop do you want to water?\n");
     
     printf("1. Wheat Plots (%d available)\n", inventar->plots.wheatp);
     printf("2. Corn Plots (%d available)\n", inventar->plots.cornp);
+    printf("3. All plots (%d available)\n", inventar->plots.cornp + inventar->plots.wheatp);
+    
+    printf("Input:");
     scanf("%d", &choice);
     
-    if (choice == 0 && inventar->plots.wheatp > 0) 
-        printf("You watered all wheat crops!\n");
-    else if (choice == 1 && inventar->plots.cornp > 0) 
-        printf("You watered all corn crops!\n");
-    else 
-        printf("Invalid choice or no crops available!\n");
+    choice--;
+    
+    if(choice != 2)
+    {
+        printf("Do you want to water:\n");
+        printf("   1. All of them.\n   2. A specific one.\n");
+        printf("Input:");
+        scanf("%d", &all_or_one);
+    }
+    
+    switch(choice)
+    {
+        case 0:
+        {
+            if(all_or_one == 1)
+            {
+                for(int j = 0; j < inventar->plots.wheatp; j++)
+                {
+                    inventar->plots.layout[choice][j].status = ready;
+                    strcpy(inventar->plots.layout[choice][j].type, "W");
+                }
+            }
+            else
+            {
+                printf("Choose which wheat plot to water from 1 to %d.\n", inventar->plots.wheatp);
+                printf("Input: ");
+                scanf("%d", &specific);
+                
+                specific--;
+                
+                inventar->plots.layout[choice][specific].status = ready;
+                strcpy(inventar->plots.layout[choice][specific].type, "W");
+            }
+        
+            break;
+        }
+        case 1:
+        {
+            if(all_or_one == 1)
+            {
+                for(int j = 0; j < inventar->plots.cornp; j++)
+                {
+                    inventar->plots.layout[choice][j].status = ready;
+                    strcpy(inventar->plots.layout[choice][j].type, "C");
+                }
+            }
+            else
+            {
+                printf("Choose which corn plot to water from 1 to %d.\n", inventar->plots.cornp);
+                printf("Input: ");
+                scanf("%d", &specific);
+                
+                specific--;
+                
+                inventar->plots.layout[choice][specific].status = ready;
+                strcpy(inventar->plots.layout[choice][specific].type, "C");
+            }
+            
+            break;
+        }
+        case 2:
+        {
+            for(int i = 0; i < 2; i++)
+            {
+                if(i == 0)
+                {
+                    for(int j = 0; j < inventar->plots.wheatp; j++)
+                    {
+                        inventar->plots.layout[i][j].status = ready;
+                        strcpy(inventar->plots.layout[i][j].type, "W");
+                    }
+                }
+                if(i == 1)
+                {
+                    for(int j = 0; j < inventar->plots.cornp; j++)
+                    {
+                        inventar->plots.layout[i][j].status = ready;
+                        strcpy(inventar->plots.layout[i][j].type, "C");
+                    }
+                }
+            }
+        }
+        default:
+        {
+            printf("Invalid input!\n");
+            break;
+        }
+    }
+        
+    printf("\n");
 }
 
 void sell(Inventory *inventar) 
@@ -130,7 +284,9 @@ void sell(Inventory *inventar)
     printf("1. Wheat: %d (2 coins per unit)\n", inventar->wheat);
     printf("2. Corn: %d (2 coins per unit)\n", inventar->corn);
     printf("3. Milk: %d (3 coins per unit)\n", inventar->milk);
-    printf("What do you want to sell? ");
+    printf("What do you want to sell?\n");
+    
+    printf("Input:");
     scanf("%d", &choice);
     
     if (choice == 0 && inventar->wheat > 0) 
@@ -182,6 +338,8 @@ void sell(Inventory *inventar)
     {
         printf("Invalid choice or not enough resources!\n");
     }
+    
+    printf("\n");
 }
 
 void buyPlot(Inventory *inventar) 
@@ -191,6 +349,8 @@ void buyPlot(Inventory *inventar)
     printf("1. Wheat Plot (3 coins)\n");
     printf("2. Corn Plot (3 coins)\n");
     printf("3. Animal Plot (5 coins)\n");
+    
+    printf("Input:");
     scanf("%d", &choice);
     
     if (choice == 0 && inventar->money >= 5) 
@@ -209,12 +369,14 @@ void buyPlot(Inventory *inventar)
     {
         inventar->plots.cowp++;
         inventar->money -= 8;
-        printf("You bought a new Animal Plot!\n");
+        printf("You bought a new Cow Plot!\n");
     } 
     else
     {
         printf("Not enough money or invalid choice!\n");
     }
+    
+    printf("\n");
 }
 
 void actions(Inventory *inventar, int alegere)
@@ -242,9 +404,14 @@ void actions(Inventory *inventar, int alegere)
             buyPlot(&(*inventar));
             break;
         }
+        case 5:
+        {
+            printf("Thanks for playing!");
+            exit(0);
+        }
         default:
         {
-            printf("Invalid input!");
+            printf("Invalid input!\n");
             break;
         }
     }
@@ -252,38 +419,46 @@ void actions(Inventory *inventar, int alegere)
 
 int main()
 {
-    int input, start = 0;//start tine cont de daca e inceput sau doar continuare
+    int input = -1, start = 0;//start tine cont de daca e inceput sau doar continuare
     Inventory inventar;
     inventar = initial();
     
     printf("Welcome to Farm Boss!\n Let's see what we're working with:\n");
-    status(inventar);
     
-    printf("Choose an action!\n");
-    printf("1. Water the crops\n");
-    printf("2. Feed the animals\n");
-    printf("3. Sell produce\n");
-    printf("4. Buy something\n");
-    printf("Input:");
-    
-    while(scanf("%d", &input) != -1) //tot scrisu tre sa apara inainte de scanf;poate do while?
-    {
-        start = 1;
-        
-        if(start != 0)
+    do
+    {    
+        if(start == 0)
         {
-            printf("What else is there to do at the farm?\n Let's geet to work:\n");
-    
+            status(inventar);
+
+            printf("Choose an action!\n");
+            printf("1. Water the crops\n");
+            printf("2. Feed the animals\n");
+            printf("3. Sell produce\n");
+            printf("4. Buy something\n");  
+            printf("5. Quit\n");
+        }
+        else
+        {
+            printf("\n");
+            
+            actions(&inventar, input);
+
+            status(inventar);
+            
+            printf("What else is there to do at the farm?\n Let's get to work:\n");
+
             printf("Choose an action!\n");
             printf("1. Water the crops\n");
             printf("2. Feed the animals\n");
             printf("3. Sell produce\n");
             printf("4. Buy something\n");
-            printf("Input:");
+            printf("5. Quit\n");
         }
-        actions(&inventar, input);
-        status(inventar);
-    }
+
+        printf("Input:");
+        start = 1;
+    }while(scanf("%d", &input) != -1);
 
     return 0;
 }
