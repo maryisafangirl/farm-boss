@@ -43,7 +43,7 @@ Inventory initial()
     return inventar;
 }
 
-void status(Inventory inventar) 
+void status(const Inventory inventar) 
 {
     int total_plots = inventar.plots.wheatp + inventar.plots.cornp + inventar.plots.cowp;
     
@@ -127,9 +127,9 @@ void sell(Inventory *inventar)
     int choice, amount;
     
     printf("You have:\n");
-    printf("1. Wheat: %d (2 money per unit)\n", inventar->wheat);
-    printf("2. Corn: %d (3 money per unit)\n", inventar->corn);
-    printf("3. Milk: %d (5 money per unit)\n", inventar->milk);
+    printf("1. Wheat: %d (2 coins per unit)\n", inventar->wheat);
+    printf("2. Corn: %d (2 coins per unit)\n", inventar->corn);
+    printf("3. Milk: %d (3 coins per unit)\n", inventar->milk);
     printf("What do you want to sell? ");
     scanf("%d", &choice);
     
@@ -141,7 +141,7 @@ void sell(Inventory *inventar)
         {
             inventar->money += amount * 2;
             inventar->wheat -= amount;
-            printf("Sold %d wheat for %d money!\n", amount, amount * 2);
+            printf("Sold %d wheat for %d coins!\n", amount, amount * 2);
         } 
         else 
         {
@@ -154,9 +154,9 @@ void sell(Inventory *inventar)
         scanf("%d", &amount);
         if (amount <= inventar->corn) 
         {
-            inventar->money += amount * 3;
+            inventar->money += amount * 2;
             inventar->corn -= amount;
-            printf("Sold %d corn for %d money!\n", amount, amount * 3);
+            printf("Sold %d corn for %d coins!\n", amount, amount * 2);
         } 
         else 
         {
@@ -169,9 +169,9 @@ void sell(Inventory *inventar)
         scanf("%d", &amount);
         if (amount <= inventar->milk) 
         {
-            inventar->money += amount * 5;
+            inventar->money += amount * 3;
             inventar->milk -= amount;
-            printf("Sold %d milk for %d money!\n", amount, amount * 5);
+            printf("Sold %d milk for %d coins!\n", amount, amount * 3);
         }
         else 
         {
@@ -187,10 +187,10 @@ void sell(Inventory *inventar)
 void buyPlot(Inventory *inventar) 
 {
     int choice;
-    printf("You have %d money. What do you want to buy?\n", inventar->money);
-    printf("1. Wheat Plot (5 money)\n");
-    printf("2. Corn Plot (5 money)\n");
-    printf("3. Animal Plot (8 money)\n");
+    printf("You have %d coins. What do you want to buy?\n", inventar->money);
+    printf("1. Wheat Plot (3 coins)\n");
+    printf("2. Corn Plot (3 coins)\n");
+    printf("3. Animal Plot (5 coins)\n");
     scanf("%d", &choice);
     
     if (choice == 0 && inventar->money >= 5) 
@@ -225,7 +225,7 @@ void actions(Inventory *inventar, int alegere)
     {
         case 1: //water
         {
-            water(&inventar);
+            water(&(*inventar));
             break;
         }
         case 2: //feed
@@ -234,12 +234,12 @@ void actions(Inventory *inventar, int alegere)
         }
         case 3: //sell
         {
-            sell(&inventar);
+            sell(&(*inventar));
             break;
         }
         case 4: //buy, ar trb sa poti sa cumperi si mancare/seeds
         {
-            buyPlot(&inventar);
+            buyPlot(&(*inventar));
             break;
         }
         default:
@@ -252,10 +252,9 @@ void actions(Inventory *inventar, int alegere)
 
 int main()
 {
-    int input;
+    int input, start = 0;//start tine cont de daca e inceput sau doar continuare
     Inventory inventar;
     inventar = initial();
-    status(inventar);
     
     printf("Welcome to Farm Boss!\n Let's see what we're working with:\n");
     status(inventar);
@@ -267,14 +266,28 @@ int main()
     printf("4. Buy something\n");
     printf("Input:");
     
-    while(scanf("%d", input) != -1)
+    while(scanf("%d", &input) != -1) //tot scrisu tre sa apara inainte de scanf;poate do while?
     {
+        start = 1;
         
+        if(start != 0)
+        {
+            printf("What else is there to do at the farm?\n Let's geet to work:\n");
+    
+            printf("Choose an action!\n");
+            printf("1. Water the crops\n");
+            printf("2. Feed the animals\n");
+            printf("3. Sell produce\n");
+            printf("4. Buy something\n");
+            printf("Input:");
+        }
         actions(&inventar, input);
         status(inventar);
     }
 
     return 0;
 }
+
+
 
 
