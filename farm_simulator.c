@@ -200,8 +200,11 @@ void water(Inventory *inventar) //choice 1
             {
                 for(int j = 0; j < inventar->plots.wheatp; j++)
                 {
-                    inventar->plots.layout[choice][j].status = ready;
-                    strcpy(inventar->plots.layout[choice][j].type, "W");
+                    if(inventar->plots.layout[choice][j].status == waiting)
+                    {
+                        inventar->plots.layout[choice][j].status = ready;
+                        strcpy(inventar->plots.layout[choice][j].type, "W");
+                    }
                 }
             }
             else
@@ -212,8 +215,13 @@ void water(Inventory *inventar) //choice 1
                 
                 specific--;
                 
-                inventar->plots.layout[choice][specific].status = ready;
-                strcpy(inventar->plots.layout[choice][specific].type, "W");
+                if(inventar->plots.layout[choice][specific].status == waiting)
+                {
+                    inventar->plots.layout[choice][specific].status = ready;
+                    strcpy(inventar->plots.layout[choice][specific].type, "W");
+                }
+                else
+                    printf("This plot has already been watered.");
             }
         
             break;
@@ -224,8 +232,11 @@ void water(Inventory *inventar) //choice 1
             {
                 for(int j = 0; j < inventar->plots.cornp; j++)
                 {
-                    inventar->plots.layout[choice][j].status = ready;
-                    strcpy(inventar->plots.layout[choice][j].type, "C");
+                    if(inventar->plots.layout[choice][j].status == waiting)
+                    {
+                        inventar->plots.layout[choice][j].status = ready;
+                        strcpy(inventar->plots.layout[choice][j].type, "C");
+                    }
                 }
             }
             else
@@ -236,8 +247,13 @@ void water(Inventory *inventar) //choice 1
                 
                 specific--;
                 
-                inventar->plots.layout[choice][specific].status = ready;
-                strcpy(inventar->plots.layout[choice][specific].type, "C");
+                if(inventar->plots.layout[choice][specific].status == waiting)
+                {
+                    inventar->plots.layout[choice][specific].status = ready;
+                    strcpy(inventar->plots.layout[choice][specific].type, "C");
+                }
+                else
+                    printf("This plot has already been watered.");
             }
             
             break;
@@ -276,7 +292,67 @@ void water(Inventory *inventar) //choice 1
 
 void feed(Inventory *inventar) //choice 2
 {
-    return;
+    int choice, all_or_one, specific;
+    
+    printf("Which animal do you want to feed?\n");
+    printf("  1. Cows\n");
+    //printf("  2. All animals\n");
+    
+    printf("Input:");
+    scanf("%d", &choice);
+    
+    choice--;
+    
+    if(choice != 1)
+    {
+        printf("Do you want to feed:\n");
+        printf("   1. All of them.\n   2. A specific one.\n");
+        printf("Input:");
+        scanf("%d", &all_or_one);
+    }
+    
+    switch(choice)
+    {
+        case 0:
+        {
+            if(all_or_one == 1)
+            {
+                for(int j = 0; j < inventar->plots.cowp; j++)
+                {
+                    if(inventar->plots.layout[2][j].status == waiting)
+                    {
+                        inventar->plots.layout[2][j].status = ready;
+                        strcpy(inventar->plots.layout[2][j].type, "MOO");
+                    }
+                }
+            }
+            else
+            {
+                printf("Choose which wheat plot to water from 1 to %d.\n", inventar->plots.cowp);
+                printf("Input: ");
+                scanf("%d", &specific);
+                
+                specific--;
+                
+                if(inventar->plots.layout[2][specific].status == waiting)
+                {
+                    inventar->plots.layout[2][specific].status = ready;
+                    strcpy(inventar->plots.layout[2][specific].type, "MOO");
+                }
+                else
+                    printf("This animal has already been fed.");
+            }
+        
+            break;
+        }
+        default:
+        {
+            printf("Invalid input!\n");
+            break;
+        }
+    }
+        
+    printf("\n");
 }
 
 void collect_resources(Inventory *inventar) //choice 3
@@ -486,7 +562,79 @@ void sell(Inventory *inventar) //choice 4
 
 void plant(Inventory *inventar) //choice 5
 {
-    return;
+    int choice, which, specific;
+    
+    printf("Which type of crop do you want to plant? You have %d plots available\n", inventar->plots.wheatp + inventar->plots.cornp + inventar->plots.emptyp);
+    
+    printf("   1. Wheat\n");
+    printf("   2. Corn\n");
+    //printf("   3. Populate an empty plot\n");
+    
+    printf("Input:");
+    scanf("%d", &choice);
+    
+    choice--;
+    
+    switch(choice)
+    {
+        case 0:
+        {
+            printf("Choose how many wheat seeds you want to plant, (%d available).\n", inventar->seed.wheat_seed);
+            printf("Input: ");
+            scanf("%d", &specific);
+            
+            if(specific > inventar->seed.wheat_seed)
+            {
+                printf("Not enough resources!\n");
+                break;
+            }
+            
+            specific--;
+            
+            for(int j = 0; j < inventar->seed.wheat_seed; j++)
+            {
+                if(inventar->plots.layout[choice][j].status == empty)
+                {
+                    inventar->plots.layout[choice][j].status = waiting;
+                    strcpy(inventar->plots.layout[choice][j].type, "w");
+                }
+            }
+          
+            break;
+        }
+        case 1:
+        {
+            printf("Choose how many corn seeds you want to plant, (%d available).\n", inventar->seed.corn_seed);
+            printf("Input: ");
+            scanf("%d", &specific);
+            
+            if(specific > inventar->seed.corn_seed)
+            {
+                printf("Not enough resources!\n");
+                break;
+            }
+            
+            specific--;
+            
+            for(int j = 0; j < inventar->seed.corn_seed; j++)
+            {
+                if(inventar->plots.layout[choice][j].status == empty)
+                {
+                    inventar->plots.layout[choice][j].status = waiting;
+                    strcpy(inventar->plots.layout[choice][j].type, "c");
+                }
+            }
+          
+            break;
+        }
+        default:
+        {
+            printf("Invalid input!\n");
+            break;
+        }
+    }
+        
+    printf("\n");
 }
 
 void buyPlot(Inventory *inventar) //choice 6
@@ -563,6 +711,7 @@ void actions(Inventory *inventar, int alegere)
         }
         case 2: //feed
         {
+            feed(&(*inventar));
             break;
         }
         case 3: //harvest/collect
@@ -626,7 +775,7 @@ int main()
             printf("6. Buy something\n"); 
             printf("7. View inventory\n"); 
             printf("8. Quit\n");
-        }
+        } 
         else
         {
             printf("\n");
