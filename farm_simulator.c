@@ -20,7 +20,7 @@ typedef enum
 
 typedef struct
 {
-    char type[21]; //litera corespunzatoare
+    char type[21]; //literele corespunzatoare
     PlotStatus status;
 }SingularPlot;
 
@@ -29,7 +29,7 @@ typedef struct
     int wheatp; //cod 0
     int cornp; //cod 1
     int cowp; //cod 2      
-    int emptyp; //default
+    int emptyp; //default; cod 3
     SingularPlot layout[MAX_ROWS][MAX_COLS];
 }Terrain;
 
@@ -93,7 +93,7 @@ Inventory initial()
       
                 break;
             }
-            default:
+            case 3:
             {
                 for(int j = 0; j < inventar.plots.emptyp; j++)
                 {
@@ -111,8 +111,6 @@ Inventory initial()
 
 void status(const Inventory inventar) 
 {
-    int total_plots = inventar.plots.wheatp + inventar.plots.cornp + inventar.plots.cowp;
-    
     printf("\n===== Farm Status =====\n");
     
     for(int i = 0; i < 4; i++)
@@ -171,7 +169,7 @@ void status(const Inventory inventar)
     printf("\n");
 }
 
-void water(Inventory *inventar) 
+void water(Inventory *inventar) //choice 1
 {
     int choice, which, specific, all_or_one = 0;
     
@@ -276,7 +274,149 @@ void water(Inventory *inventar)
     printf("\n");
 }
 
-void sell(Inventory *inventar) 
+void feed(Inventory *inventar) //choice 2
+{
+    return;
+}
+
+void collect_resources(Inventory *inventar) //choice 3
+{
+    int choice, wheat_to_harvest = 0, corn_to_harvest = 0, cows_to_milk = 0;
+    
+    printf("Which resource do you want to harvest?\n");
+    
+    for(int j = 0; j < inventar->plots.wheatp; j++)
+        if(inventar->plots.layout[0][j].status == ready)
+            wheat_to_harvest++;
+            
+    for(int j = 0; j < inventar->plots.cornp; j++)
+        if(inventar->plots.layout[1][j].status == ready)
+            corn_to_harvest++;
+            
+    for(int j = 0; j < inventar->plots.cowp; j++)
+        if(inventar->plots.layout[2][j].status == ready)
+            cows_to_milk++;
+        
+    
+    printf("1. Wheat Plots: %d available\n", wheat_to_harvest);
+    printf("2. Corn Plots: %d available\n", corn_to_harvest);
+    printf("3. Cows: %d available\n", cows_to_milk);
+    printf("4. Collect all: %d available\n", wheat_to_harvest + corn_to_harvest + cows_to_milk);
+    
+    printf("Input:");
+    scanf("%d", &choice);
+    
+    choice--;
+    
+    switch(choice)
+    {
+        case 0:
+        {
+            int aux = inventar->plots.wheatp;
+            
+            for(int j = 0; j < aux; j++)
+            {
+                if(inventar->plots.layout[choice][j].status == ready)
+                {
+                    strcpy(inventar->plots.layout[choice][j].type, " ");
+                    inventar->plots.layout[choice][j].status = empty;
+                    (inventar->wheat) += 2;
+                    (inventar->seed.wheat_seed)++;
+                }
+            }
+        
+            break;
+        }
+        case 1:
+        {
+            int aux = inventar->plots.cornp;
+            
+            for(int j = 0; j < aux; j++)
+            {
+                if(inventar->plots.layout[choice][j].status == ready)
+                {
+                    strcpy(inventar->plots.layout[choice][j].type, " ");
+                    inventar->plots.layout[choice][j].status = empty;
+                    (inventar->corn) += 2;
+                    (inventar->seed.corn_seed)++;
+                }
+            }
+            
+            break;
+        }
+        case 2:
+        {
+            for(int j = 0; j < inventar->plots.cowp; j++)
+            {
+                if(inventar->plots.layout[choice][j].status == ready)
+                {
+                    strcpy(inventar->plots.layout[choice][j].type, "moo");
+                    inventar->plots.layout[choice][j].status = waiting;
+                    (inventar->milk)++;
+                }
+            }
+            
+            break;
+        }
+        case 3:
+        {
+            for(int i = 0; i < 3; i++)
+            {
+                if(i == 0)
+                {
+                    int aux = inventar->plots.wheatp;
+                    
+                    for(int j = 0; j < aux; j++)
+                    {
+                        if(inventar->plots.layout[i][j].status == ready)
+                        {
+                            strcpy(inventar->plots.layout[i][j].type, " ");
+                            inventar->plots.layout[i][j].status = empty;
+                            (inventar->wheat) += 2;
+                            (inventar->seed.wheat_seed)++;
+                        }
+                    }
+                }
+                if(i == 1)
+                {
+                    int aux = inventar->plots.cornp;
+            
+                    for(int j = 0; j < aux; j++)
+                    {
+                        if(inventar->plots.layout[i][j].status == ready)
+                        {
+                            strcpy(inventar->plots.layout[i][j].type, " ");
+                            inventar->plots.layout[i][j].status = empty;
+                            (inventar->corn) += 2;
+                            (inventar->seed.corn_seed)++;
+                        }
+                    }
+                }
+                if(i == 2)
+                {
+                    for(int j = 0; j < inventar->plots.cowp; j++)
+                    {
+                        if(inventar->plots.layout[choice][j].status == ready)
+                        {
+                            strcpy(inventar->plots.layout[choice][j].type, "moo");
+                            inventar->plots.layout[choice][j].status = waiting;
+                            (inventar->milk)++;
+                        }
+                    }
+                }
+            }
+        }
+        default:
+        {
+            printf("Invalid input!\n");
+            break;
+        }
+    }
+        
+    printf("\n");
+}
+
+void sell(Inventory *inventar) //choice 4
 {
     int choice, amount;
     
@@ -289,7 +429,9 @@ void sell(Inventory *inventar)
     printf("Input:");
     scanf("%d", &choice);
     
-    if (choice == 0 && inventar->wheat > 0) 
+    choice--;
+    
+    if(choice == 0 && inventar->wheat > 0) 
     {
         printf("How much wheat to sell? ");
         scanf("%d", &amount);
@@ -304,7 +446,7 @@ void sell(Inventory *inventar)
             printf("Not enough wheat!\n");
         }
     } 
-    else if (choice == 1 && inventar->corn > 0) 
+    else if(choice == 1 && inventar->corn > 0) 
     {
         printf("How much corn to sell? ");
         scanf("%d", &amount);
@@ -319,7 +461,7 @@ void sell(Inventory *inventar)
             printf("Not enough corn!\n");
         }
     } 
-    else if (choice == 2 && inventar->milk > 0) 
+    else if(choice == 2 && inventar->milk > 0) 
     {
         printf("How much milk to sell? ");
         scanf("%d", &amount);
@@ -342,34 +484,40 @@ void sell(Inventory *inventar)
     printf("\n");
 }
 
-void buyPlot(Inventory *inventar) 
+void plant(Inventory *inventar) //choice 5
+{
+    return;
+}
+
+void buyPlot(Inventory *inventar) //choice 6
 {
     int choice;
     printf("You have %d coins. What do you want to buy?\n", inventar->money);
-    printf("1. Wheat Plot (3 coins)\n");
-    printf("2. Corn Plot (3 coins)\n");
-    printf("3. Animal Plot (5 coins)\n");
+    printf("1. Plant plot (3 coins)\n");
+    printf("2. Animal Plot (5 coins)\n");
     
     printf("Input:");
     scanf("%d", &choice);
     
-    if (choice == 0 && inventar->money >= 5) 
+    choice--;
+    
+    if (choice == 0 && inventar->money >= 3) 
     {
-        inventar->plots.wheatp++;
-        inventar->money -= 5;
-        printf("You bought a new Wheat Plot!\n");
+        inventar->plots.emptyp++;
+        inventar->money -= 3;
+        strcpy(inventar->plots.layout[3][inventar->plots.cowp].type, " "); 
+        inventar->plots.layout[3][inventar->plots.cowp].status = empty;
+        
+        printf("You bought a new plot!\n");
     } 
     else if (choice == 1 && inventar->money >= 5) 
     {
-        inventar->plots.cornp++;
-        inventar->money -= 5;
-        printf("You bought a new Corn Plot!\n");
-    } 
-    else if (choice == 2 && inventar->money >= 8) 
-    {
         inventar->plots.cowp++;
-        inventar->money -= 8;
-        printf("You bought a new Cow Plot!\n");
+        inventar->money -= 5;
+        strcpy(inventar->plots.layout[2][inventar->plots.cowp].type, "moo");
+        inventar->plots.layout[2][inventar->plots.cowp].status = waiting;
+        
+        printf("You bought a new cow plot!\n");
     } 
     else
     {
@@ -379,7 +527,30 @@ void buyPlot(Inventory *inventar)
     printf("\n");
 }
 
-void actions(Inventory *inventar, int alegere)
+void viewInventory(const Inventory inventar) //choice 7
+{
+    printf("\n===== Farm Status =====\n");
+    printf("Take a look at your resources:\n");
+    
+    printf("     Amount of wheat: %d\n", inventar.wheat);
+    printf("     Amount of corn: %d\n", inventar.corn);
+    printf("     Amount of milk: %d\n", inventar.milk);
+    printf("     Amount of money: %d\n", inventar.money);
+    printf("\n");
+    
+    printf("     Amount of wheat seeds: %d\n", inventar.seed.wheat_seed);
+    printf("     Amount of corn seeds: %d\n", inventar.seed.corn_seed);
+    printf("\n");
+    
+    printf("     Amount of wheat plots: %d\n", inventar.plots.wheatp);
+    printf("     Amount of corn plots: %d\n", inventar.plots.cornp);
+    printf("     Amount of cow plots: %d\n", inventar.plots.cowp);
+    printf("     Amount of empty plots: %d\n", inventar.plots.emptyp);
+    printf("========================\n");
+    printf("\n");
+}
+
+void actions(Inventory *inventar, int alegere) 
 {
     int which;
     
@@ -394,22 +565,37 @@ void actions(Inventory *inventar, int alegere)
         {
             break;
         }
-        case 3: //sell
+        case 3: //harvest/collect
+        {
+            collect_resources(&(*inventar));
+            break;
+        }
+        case 4: //sell
         {
             sell(&(*inventar));
             break;
         }
-        case 4: //buy, ar trb sa poti sa cumperi si mancare/seeds
+        case 5: //plant
+        {
+            plant(&(*inventar));
+            break;
+        }
+        case 6: //buy, ar trb sa poti sa cumperi si mancare/seeds
         {
             buyPlot(&(*inventar));
             break;
         }
-        case 5:
+        case 7: //view inventory pentru produse si seeds si number of plots
+        {
+            viewInventory(*inventar);
+            break;
+        }
+        case 8: //quit game
         {
             printf("Thanks for playing!");
             exit(0);
         }
-        default:
+        default: //invalid
         {
             printf("Invalid input!\n");
             break;
@@ -434,9 +620,12 @@ int main()
             printf("Choose an action!\n");
             printf("1. Water the crops\n");
             printf("2. Feed the animals\n");
-            printf("3. Sell produce\n");
-            printf("4. Buy something\n");  
-            printf("5. Quit\n");
+            printf("3. Collect resources\n");
+            printf("4. Sell produce\n");
+            printf("5. Plant seeds\n");
+            printf("6. Buy something\n"); 
+            printf("7. View inventory\n"); 
+            printf("8. Quit\n");
         }
         else
         {
@@ -451,9 +640,12 @@ int main()
             printf("Choose an action!\n");
             printf("1. Water the crops\n");
             printf("2. Feed the animals\n");
-            printf("3. Sell produce\n");
-            printf("4. Buy something\n");
-            printf("5. Quit\n");
+            printf("3. Collect resources\n");
+            printf("4. Sell produce\n");
+            printf("5. Plant seeds\n");
+            printf("6. Buy something\n"); 
+            printf("7. View inventory\n"); 
+            printf("8. Quit\n");
         }
 
         printf("Input:");
@@ -462,6 +654,8 @@ int main()
 
     return 0;
 }
+
+
 
 
 
