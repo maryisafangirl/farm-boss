@@ -126,6 +126,7 @@ void status(const Inventory inventar)
             {
                 if(inventar.plots.wheatp != 0)
                 {
+                    printf("Wheat:🌾 ");
                     for(int j = 0; j < inventar.plots.wheatp; j++)
                         printf("[%s] ", inventar.plots.layout[i][j].type);
                 }
@@ -138,6 +139,7 @@ void status(const Inventory inventar)
             {
                 if(inventar.plots.cornp != 0)
                 {
+                    printf("Corn:🌽 ");
                     for(int j = 0; j < inventar.plots.cornp; j++)
                         printf("[%s] ", inventar.plots.layout[i][j].type);
                 }
@@ -150,6 +152,7 @@ void status(const Inventory inventar)
             {
                 if(inventar.plots.cowp != 0)
                 {
+                    printf("Cow:🐄 ");
                     for(int j = 0; j < inventar.plots.cowp; j++)
                         printf("[%s] ", inventar.plots.layout[i][j].type);
                 }
@@ -160,8 +163,9 @@ void status(const Inventory inventar)
             }
             default:
             {
-                 for(int j = 0; j < inventar.plots.emptyp; j++)
-                        printf("[%s] ", inventar.plots.layout[i][j].type);
+                printf("Empty:🟫 ");
+                for(int j = 0; j < inventar.plots.emptyp; j++)
+                    printf("[%s] ", inventar.plots.layout[i][j].type);
                         
                 printf("\n");        
                 
@@ -984,3 +988,11 @@ int main()
 
     return 0;
 }
+
+
+
+
+
+
+
+
