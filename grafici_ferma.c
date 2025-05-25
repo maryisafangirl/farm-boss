@@ -1,9 +1,15 @@
 #include "raylib.h"
 #include <stdio.h>
+#include <string.h>
 
 #define TILE_SIZE 64
 #define GRID_ROWS 4
 #define GRID_COLS 5
+#define MAX_MESSAGES 3
+
+const int screenWidth = 800;
+const int screenHeight = 400;
+
 
 typedef enum GameScreen 
 { 
@@ -28,6 +34,14 @@ typedef struct
     PlotStatus status;
 } Plot;
 
+typedef struct Player
+{
+    Vector2 position;
+    Vector2 speed;
+    Vector2 size;
+    Rectangle bounds;
+} Player;
+
 // Simple game inventory
 typedef struct 
 {
@@ -39,6 +53,7 @@ typedef struct
 Texture2D wheatTex, cornTex, cowTex, emptyTex;
 Texture2D tileBgTex, windowBgTex, texLogo, texLogoScreen; 
 Texture2D milkIcon, coinIcon, seedIcon;
+Texture2D frogTex, charTex;
 
 // Initialize farm
 void InitFarm(Inventory *inv)
@@ -78,7 +93,8 @@ void InitFarm(Inventory *inv)
 }
 
 // Draw the farm grid
-void DrawFarm(Inventory *inv) {
+void DrawFarm(Inventory *inv) 
+{
     for (int r = 0; r < GRID_ROWS; r++) 
     {
         for (int c = 0; c < GRID_COLS; c++) 
@@ -128,7 +144,8 @@ void DrawFarm(Inventory *inv) {
 }
 
 // Draw inventory bar
-void DrawInventory(Inventory *inv) {
+void DrawInventory(Inventory *inv) 
+{
     int iconSize = 24;
     int x = 50, y = 10;
 
@@ -141,7 +158,7 @@ void DrawInventory(Inventory *inv) {
     DrawText(TextFormat("%d", inv->corn), x + 30, y + 4, 20, DARKGREEN);
 
     x += 80;
-    DrawTextureEx(milkIcon, (Vector2){x, y}, 0.0f, (float)20 / milkIcon.width, WHITE);
+    DrawTextureEx(milkIcon, (Vector2){x, y}, 0.0f, (float) 35 / milkIcon.width, WHITE);
     DrawText(TextFormat("%d", inv->milk), x + 30, y + 4, 20, DARKGREEN);
 
     x += 80;
@@ -151,18 +168,108 @@ void DrawInventory(Inventory *inv) {
     // Seed inventory
     x = 400; y = 10;
     DrawTextureEx(seedIcon, (Vector2){x, y}, 0.0f, (float)iconSize / seedIcon.width, WHITE);
-    DrawText(TextFormat("wheat: %d\ncorn: %d", inv->wheat_seed, inv->corn_seed), x + 30, y + 4, 20, DARKBLUE);
+    DrawText(TextFormat("wheat: %d\ncorn: %d", inv->wheat_seed, inv->corn_seed), x + 30, y + 4, 20, PINK);
     
     // Action instructions
     DrawText("[1] Water  [2] Feed  [3] Harvest  [4] Plant", 50, 350, 20, DARKGRAY);
 }
 
+const char *frogMessages[MAX_MESSAGES] = {
+    "Ribbit! Welcome to Farm Boss!",
+    "Press the arrows to move.",
+    "Have fun playing!"
+};
+
+int currentMessage = 0;
+float typeTimer = 0.0f;
+int typedChars = 0;
+bool messageComplete = false;
+bool dialogueFinished = false;
+
+void UpdateFrogDialogue()
+{
+    float delta = GetFrameTime();
+
+    // Typewriter animation
+    if (!messageComplete) 
+    {
+        typeTimer += delta;
+
+        if (typeTimer >= 0.05f) 
+        { // Adjust speed here
+            typedChars++;
+            typeTimer = 0.0f;
+
+            if (typedChars >= strlen(frogMessages[currentMessage])) 
+            {
+                messageComplete = true;
+            }
+        }
+    }
+
+    // Proceed to next message when user presses E
+    if (messageComplete && IsKeyPressed(KEY_E)) 
+    {
+        currentMessage++;
+
+        if (currentMessage >= MAX_MESSAGES)
+        {
+            dialogueFinished = true;
+            return;
+        }
+
+        typedChars = 0;
+        typeTimer = 0.0f;
+        messageComplete = false;
+    }
+}
+
+void DrawFrogDialogue() 
+{
+    if(dialogueFinished == true)
+        return;
+
+    int x = 500, y = 200;
+    float scale = (float)150 / frogTex.width;
+
+    DrawTextureEx(frogTex, (Vector2){x, y}, 0.0f, scale, WHITE);
+
+    // Draw speech bubble
+    DrawRectangle(x - 20, 170, 300, 25, WHITE);
+
+    char buffer[256];
+    strncpy(buffer, frogMessages[currentMessage], typedChars);
+    buffer[typedChars] = '\0';
+
+    DrawText(buffer, x - 20, 170, 20, PINK);
+
+    if (messageComplete)
+        DrawText("Press [E] to continue", x - 20, 195, 10, GRAY);
+}
+
+Player player;
+
+void InitPlayer()
+{
+    player.position = (Vector2){ 500, 200};
+    player.speed = (Vector2){ 8.0f, 0.0f };
+    player.size = (Vector2){ 50, 24 };
+    player.bounds = (Rectangle){ 0 };
+}
+
+void DrawChar() 
+{   
+    if(dialogueFinished == true)
+    {
+        int x = 500, y = 200;
+        float scale = (float)50 / charTex.width;
+
+        DrawTextureEx(charTex, player.position, 0.0f, scale, WHITE);
+    }
+}
 
 int main() 
 {
-    const int screenWidth = 800;
-    const int screenHeight = 400;
-
     InitWindow(screenWidth, screenHeight, "Farm Boss");
 
     int framesCounter = 0;          
@@ -178,6 +285,10 @@ int main()
     milkIcon = LoadTexture("assets/milk_icon.png");
     coinIcon = LoadTexture("assets/coin_icon.png");
     seedIcon = LoadTexture("assets/seeds.png");
+    frogTex = LoadTexture("assets/frog.png");
+    charTex = LoadTexture("assets/character.png");
+
+    InitPlayer();
 
     GameScreen screen = LOGO;
 
@@ -201,8 +312,9 @@ int main()
                     screen = TITLE;    // Change to TITLE screen after 3 seconds
                     framesCounter = 0;
                 }
-                
-            } break;
+
+               break; 
+            } 
             case TITLE: 
             {
                 // Update TITLE screen data here!
@@ -210,16 +322,39 @@ int main()
                 framesCounter++;
                 
                 // LESSON 03: Inputs management (keyboard, mouse)
-                if (IsKeyPressed(KEY_ENTER)) screen = GAMEPLAY;
-                
-            } break;
+                if (IsKeyPressed(KEY_ENTER)) 
+                    screen = GAMEPLAY;
+
+                break;
+            } 
             case GAMEPLAY:
             { 
                 //gameplay logic
-                
-                if (IsKeyPressed(KEY_ENTER)) screen = ENDING;
+                if (IsKeyDown(KEY_LEFT))
+                    player.position.x -= player.speed.x;
 
-            } break;
+                if (IsKeyDown(KEY_RIGHT)) 
+                    player.position.x += player.speed.x;
+
+                if (IsKeyDown(KEY_UP)) 
+                    player.position.y -= player.speed.x;
+
+                if (IsKeyDown(KEY_DOWN)) 
+                    player.position.y += player.speed.x;
+                    
+                if ((player.position.x) <= 0) 
+                    player.position.x = 0;
+
+                if ((player.position.x + player.size.x) >= screenWidth) 
+                    player.position.x = screenWidth - player.size.x;
+                    
+                player.bounds = (Rectangle){ player.position.x, player.position.y, player.size.x, player.size.y };
+                
+                if (IsKeyPressed(KEY_ENTER)) 
+                    screen = ENDING;
+
+                break;
+            } 
             case ENDING: 
             {
                 // Update END screen data here!
@@ -227,9 +362,11 @@ int main()
                 framesCounter++;
                 
                 // LESSON 03: Inputs management (keyboard, mouse)
-                if (IsKeyPressed(KEY_ENTER)) screen = TITLE;
+                if (IsKeyPressed(KEY_ENTER)) 
+                    screen = TITLE;
 
-            } break;
+                break;
+            } 
             default: break;
         }
 
@@ -270,12 +407,17 @@ int main()
                     // TODO: Draw GAMEPLAY screen here!
                     DrawFarm(&farm);
                     DrawInventory(&farm);
+                    
+                    UpdateFrogDialogue();
+                    DrawFrogDialogue();
+
+                    DrawChar();
 
                     break;
                 } 
                 case ENDING:
                 {
-                    DrawText("Thank you for playing, boss!", 50, 50, 60, PINK);
+                    DrawText("Thank you for playing, boss!", 50, 50, 50, PINK);
 
                     if ((framesCounter/30)%2 == 0) DrawText("PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 + 80, 20, GRAY);
                     break;
@@ -297,6 +439,8 @@ int main()
     UnloadTexture(milkIcon);
     UnloadTexture(coinIcon);
     UnloadTexture(seedIcon);
+    UnloadTexture(frogTex);
+    UnloadTexture(charTex); 
     //de dat unload la tot
 
     CloseWindow();
