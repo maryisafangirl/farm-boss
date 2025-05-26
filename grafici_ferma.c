@@ -24,7 +24,7 @@ typedef enum
 // Plot status
 typedef enum 
 {
-    STATUS_EMPTY, STATUS_WAITING, STATUS_READY
+    STATUS_WAITING, STATUS_READY, STATUS_HARVESTED
 } PlotStatus;
 
 typedef struct 
@@ -48,6 +48,7 @@ typedef struct
     int wheat_seed, corn_seed;
     bool hasWateringCan;
     bool hasSickle;
+    bool hasShovel;
     Plot plots[GRID_ROWS][GRID_COLS];
 } Inventory;
 
@@ -65,10 +66,17 @@ typedef struct
     Rectangle bounds;
 } Sickle;
 
+typedef struct 
+{
+    Vector2 position;
+    bool isVisible; 
+    Rectangle bounds;
+} Shovel;
+
 Texture2D wheatTex, cornTex, cowTex, emptyTex;
 Texture2D tileBgTex, windowBgTex, texLogo, texLogoScreen; 
 Texture2D milkIcon, coinIcon, seedIcon, before_waterTex;
-Texture2D frogTex, charTex, wateringCanTex, sickleTex;
+Texture2D frogTex, charTex, wateringCanTex, sickleTex, shovelTex;
 
 int currentMessage = 0;
 float typeTimer = 0.0f;
@@ -109,7 +117,7 @@ void InitFarm(Inventory *inv)
             else 
             {
                 p->type = TILE_EMPTY; 
-                p->status = STATUS_EMPTY; 
+                p->status = STATUS_WAITING; 
             }
         }
     }
@@ -117,6 +125,7 @@ void InitFarm(Inventory *inv)
 
 WateringCan wateringCan;
 Sickle sickle;
+Shovel shovel;
 
 void InitWateringCan()
 {
@@ -130,12 +139,22 @@ void InitWateringCan()
 
 void InitSickle()
 {
-    sickle.position = (Vector2){ 700, 190 };  // Position it somewhere on the farm
+    sickle.position = (Vector2){ 700, 200 };  // Position it somewhere on the farm
     sickle.isVisible = true;
     float scale = 32.0f / sickleTex.width;
     int actualWidth = (int)(sickleTex.width * scale);
     int actualHeight = (int)(sickleTex.height * scale);
     sickle.bounds = (Rectangle){ sickle.position.x, sickle.position.y, actualWidth, actualHeight };
+}
+
+void InitShovel()
+{
+    shovel.position = (Vector2){ 700, 250 };  // Position it somewhere on the farm
+    shovel.isVisible = true;
+    float scale = 32.0f / shovelTex.width;
+    int actualWidth = (int)(shovelTex.width * scale);
+    int actualHeight = (int)(shovelTex.height * scale);
+    shovel.bounds = (Rectangle){ shovel.position.x, shovel.position.y, actualWidth, actualHeight };
 }
 
 bool CheckWateringCanPickup(Player *player, WateringCan *can, Inventory *inv)
@@ -168,11 +187,26 @@ bool CheckSicklePickup(Player *player, Sickle *sickle, Inventory *inv)
     return false;
 }
 
+bool CheckShovelPickup(Player *player, Shovel *shovel, Inventory *inv)
+{
+    if (!shovel->isVisible || !dialogueFinished) 
+        return false;
+    
+    if (CheckCollisionRecs(player->bounds, shovel->bounds))
+    {
+        inv->hasShovel = true;
+        shovel->isVisible = false;
+        return true;
+    }
+
+    return false;
+}
+
 void HarvestPlot(Plot *plot, Inventory *inv)
 {
     if (plot->type != TILE_EMPTY && plot->status == STATUS_READY)
     {
-        plot->status = STATUS_WAITING;
+        plot->status = STATUS_HARVESTED;
 
         if(plot->type == TILE_WHEAT)
         {
@@ -184,6 +218,25 @@ void HarvestPlot(Plot *plot, Inventory *inv)
         {
             inv->corn_seed++;
             inv->corn++; 
+        }
+    }
+}
+
+void Plant(Plot *plot, Inventory *inv, TileType selectedCrop)
+{
+    if (plot->type == TILE_EMPTY || plot->status == STATUS_HARVESTED)
+    {
+        if (selectedCrop == TILE_WHEAT && inv->wheat_seed > 0)
+        {
+            plot->type = TILE_WHEAT;
+            plot->status = STATUS_WAITING;
+            inv->wheat_seed--;
+        }
+        else if (selectedCrop == TILE_CORN && inv->corn_seed > 0)
+        {
+            plot->type = TILE_CORN;
+            plot->status = STATUS_WAITING;
+            inv->corn_seed--;
         }
     }
 }
@@ -281,15 +334,15 @@ void HandleSickleInteraction(Player *player, Inventory *inv)
                 {
                     case TILE_WHEAT: 
                     {
-                        if(p->status == STATUS_WAITING)
-                            tex = before_waterTex;
+                        if(p->status == STATUS_HARVESTED)
+                            tex = emptyTex;
 
                         break;
                     }
                     case TILE_CORN: 
                     {
-                        if(p->status == STATUS_WAITING)
-                            tex = before_waterTex;
+                        if(p->status == STATUS_HARVESTED)
+                            tex = emptyTex;
 
                         break;
                     }
@@ -303,6 +356,68 @@ void HandleSickleInteraction(Player *player, Inventory *inv)
                 return;
             }
         }  
+    }
+}
+
+void HandleShovelInteraction(Player *player, Inventory *inv)
+{
+    if (!inv->hasShovel) 
+        return;
+
+    for (int r = 0; r < GRID_ROWS; r++)
+    {
+        for (int c = 0; c < GRID_COLS; c++)
+        {
+            int x = 50 + c * TILE_SIZE;
+            int y = 50 + r * TILE_SIZE;
+            Rectangle tileRect = { x, y, TILE_SIZE, TILE_SIZE };
+            Vector2 tilePos = { (float)x, (float)y };
+
+            if (CheckCollisionRecs(player->bounds, tileRect))
+            {
+                // Player presses 1 to plant wheat, 2 for corn
+                if (IsKeyPressed(KEY_ONE) && inv->wheat_seed > 0)
+                {
+                    float cropScale = (float)TILE_SIZE / wheatTex.width;
+                    DrawTextureEx(wheatTex, tilePos, 0.0f, cropScale, WHITE);
+                    Plant(&inv->plots[r][c], inv, TILE_WHEAT);
+                }
+
+                if (IsKeyPressed(KEY_TWO) && inv->corn_seed > 0)
+                {
+                    float cropScale = (float)TILE_SIZE / cornTex.width;
+                    DrawTextureEx(cornTex, tilePos, 0.0f, cropScale, WHITE);
+                    Plant(&inv->plots[r][c], inv, TILE_CORN);
+                }
+
+                return;
+            }
+        }
+    }
+}
+
+void FeedCowsInteraction(Player *player, Inventory *inv)
+{
+    if (inv->wheat < 1) return;
+
+    for (int r = 0; r < GRID_ROWS; r++)
+    {
+        for (int c = 0; c < GRID_COLS; c++)
+        {
+            if (inv->plots[r][c].type == TILE_COW)
+            {
+                int x = 50 + c * TILE_SIZE;
+                int y = 50 + r * TILE_SIZE;
+                Rectangle tileRect = { x, y, TILE_SIZE, TILE_SIZE };
+
+                if (CheckCollisionRecs(player->bounds, tileRect))
+                {
+                    inv->wheat--;
+                    inv->milk++;
+                    return;
+                }
+            }
+        }
     }
 }
 
@@ -331,16 +446,22 @@ void DrawFarm(Inventory *inv)
                 {
                     if(p->status == STATUS_WAITING)
                         tex = before_waterTex;
-                    else
+                    if(p->status == STATUS_READY)
                         tex = wheatTex; 
+                    if(p->status == STATUS_HARVESTED)
+                        tex = emptyTex;
+
                     break;
                 }
                 case TILE_CORN: 
                 {
                     if(p->status == STATUS_WAITING)
                         tex = before_waterTex;
-                    else
+                    if(p->status == STATUS_READY)
                         tex = cornTex; 
+                    if(p->status == STATUS_HARVESTED)
+                        tex = emptyTex;
+
                     break;
                 }
                 case TILE_COW: 
@@ -348,7 +469,6 @@ void DrawFarm(Inventory *inv)
                     tex = cowTex; 
                     break;
                 }
-                case TILE_EMPTY:
                 default: 
                 {
                     tex = emptyTex; 
@@ -361,6 +481,9 @@ void DrawFarm(Inventory *inv)
             DrawTextureEx(tex, tilePos, 0.0f, cropScale, WHITE);
         }
     }
+
+    if(inv->hasShovel)
+        DrawText("[1] Plant Wheat   [2] Plant Corn", 50, 320, 20, DARKGRAY);
 }
 
 // Draw inventory bar
@@ -406,19 +529,30 @@ void DrawInventory(Inventory *inv)
         if(inv->hasWateringCan == true)
         {
             DrawText("[C] Collect resources", 500, 350, 20, DARKGRAY);
-            DrawText("[E] Toggle sickle Can", 500, 370, 20, DARKGRAY);
+            DrawText("[E] Toggle sickle", 500, 370, 20, DARKGRAY);
         }
         else
         {
             DrawText("[C] Collect resources", 50, 350, 20, DARKGRAY);
-            DrawText("[E] Toggle sickle Can", 50, 370, 20, DARKGRAY);
+            DrawText("[E] Toggle sickle", 50, 370, 20, DARKGRAY);
         }
     }
     else
         InitSickle();
 
+    x += 80;
+
+    if (inv->hasShovel)
+    {
+        DrawTextureEx(shovelTex, (Vector2){x, y}, 0.0f, (float)iconSize / shovelTex.width, WHITE);
+
+        DrawText("Shovel", x + 30, y + 4, 20, GREEN);
+    }
+    else
+        InitShovel();
+
     // Seed inventory
-    x += 90;
+    x += 95;
     y = 10;
     DrawTextureEx(seedIcon, (Vector2){x, y}, 0.0f, (float)iconSize / seedIcon.width, WHITE);
     DrawText(TextFormat("wheat: %d\ncorn: %d", inv->wheat_seed, inv->corn_seed), x + 30, y + 4, 20, PINK);
@@ -497,7 +631,13 @@ void InitPlayer()
 {
     player.position = (Vector2){ 500, 200};
     player.speed = (Vector2){ 8.0f, 0.0f };
-    player.size = (Vector2){ 50, charTex.width };
+    
+    float charScale = 32.0f / charTex.width; // or whatever width you want
+    float visualWidth = charTex.width * charScale;
+    float visualHeight = charTex.height * charScale;
+
+    player.size = (Vector2){ visualWidth, visualHeight };
+
     player.bounds = (Rectangle){ 0 };
 }
 
@@ -530,6 +670,14 @@ void DrawSickle(Sickle *sickle)
     DrawTextureEx(sickleTex, sickle->position, 0.0f, scale, WHITE);
 }
 
+void DrawShovel(Shovel *shovel)
+{
+    if (!shovel->isVisible || !dialogueFinished) 
+        return;
+    
+    float scale = 40.0f / shovelTex.width; 
+    DrawTextureEx(shovelTex, shovel->position, 0.0f, scale, WHITE);
+}
 
 int main() 
 {
@@ -553,6 +701,7 @@ int main()
     wateringCanTex = LoadTexture("assets/watering_can.png");
     before_waterTex = LoadTexture("assets/plant_not_ready.png");
     sickleTex = LoadTexture("assets/sickle.png");
+    shovelTex = LoadTexture("assets/shovel.png");
 
     GameScreen screen = LOGO;
 
@@ -563,15 +712,14 @@ int main()
     InitPlayer();
     InitWateringCan();
     InitSickle();
+    InitShovel();
 
     while (!WindowShouldClose()) //ESC to end
     {
         switch(screen) 
         {
             case LOGO: 
-            {
-                // Update LOGO screen data here!
-                
+            {           
                 framesCounter++;
                 
                 if (framesCounter > 180) 
@@ -614,18 +762,22 @@ int main()
 
                 if ((player.position.x + player.size.x) >= screenWidth) 
                     player.position.x = screenWidth - player.size.x;
-                    
-                player.bounds = (Rectangle){ player.position.x, player.position.y, player.size.x, player.size.y };
                 
+                player.bounds = (Rectangle){ player.position.x, player.position.y + player.size.y - 20,  player.size.x, 20};
+
                 if (!farm.hasWateringCan)
                 {
                     CheckWateringCanPickup(&player, &wateringCan, &farm);
                 }
 
-                // Only check for sickle pickup if we don't already have it  
                 if (!farm.hasSickle) 
                 {
                     CheckSicklePickup(&player, &sickle, &farm);
+                }
+
+                if (!farm.hasShovel) 
+                {
+                    CheckShovelPickup(&player, &shovel, &farm);
                 }
 
                 if (IsKeyPressed(KEY_W))
@@ -638,6 +790,13 @@ int main()
                     farm.hasWateringCan = false;
                 }
 
+                HandleShovelInteraction(&player, &farm);
+
+                if (IsKeyPressed(KEY_U) && farm.hasShovel)
+                {
+                    farm.hasShovel = false;
+                }
+
                 if (IsKeyPressed(KEY_C))
                 {
                     HandleSickleInteraction(&player, &farm);
@@ -646,6 +805,11 @@ int main()
                 if (IsKeyPressed(KEY_E) && farm.hasSickle)
                 {
                     farm.hasSickle = false;
+                }
+
+                if (IsKeyPressed(KEY_F)) // Feed cows
+                {
+                    FeedCowsInteraction(&player, &farm);
                 }
 
                 if (IsKeyPressed(KEY_ENTER)) 
@@ -712,6 +876,7 @@ int main()
                     DrawChar();
                     DrawWateringCan(&wateringCan);
                     DrawSickle(&sickle);
+                    DrawShovel(&shovel);
 
                     break;
                 } 
@@ -744,6 +909,7 @@ int main()
     UnloadTexture(wateringCanTex);
     UnloadTexture(before_waterTex);
     UnloadTexture(sickleTex);
+    UnloadTexture(shovelTex);
     //de dat unload la tot
 
     CloseWindow();
