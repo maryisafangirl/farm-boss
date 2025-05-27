@@ -12,16 +12,14 @@ const int screenHeight = 400;
 
 typedef enum GameScreen 
 { 
-    LOGO, TITLE, GAMEPLAY, ENDING 
+    LOGO, TITLE, GAMEPLAY, WINDMILL, BAKERY, ENDING 
 } GameScreen;
 
-// Plot types
 typedef enum 
 {
     TILE_WHEAT, TILE_CORN, TILE_COW, TILE_EMPTY, TILE_NONE
 } TileType;
 
-// Plot status
 typedef enum 
 {
     STATUS_WAITING, STATUS_READY, STATUS_HARVESTED
@@ -31,6 +29,8 @@ typedef struct
 {
     TileType type;
     PlotStatus status;
+    bool isWatered;
+    float growthTimer;
 } Plot;
 
 typedef struct Player
@@ -41,7 +41,6 @@ typedef struct Player
     Rectangle bounds;
 } Player;
 
-// Simple game inventory
 typedef struct 
 {
     int wheat, corn, milk, money;
@@ -49,6 +48,8 @@ typedef struct
     bool hasWateringCan;
     bool hasSickle;
     bool hasShovel;
+    int flour;
+    int bread;
     Plot plots[GRID_ROWS][GRID_COLS];
 } Inventory;
 
@@ -74,9 +75,9 @@ typedef struct
 } Shovel;
 
 Texture2D wheatTex, cornTex, cowTex, emptyTex;
-Texture2D tileBgTex, windowBgTex, texLogo, texLogoScreen; 
+Texture2D tileBgTex, windowBgTex, texLogo, texLogoScreen, storeBgTex; 
 Texture2D milkIcon, coinIcon, seedIcon, before_waterTex;
-Texture2D frogTex, charTex, wateringCanTex, sickleTex, shovelTex;
+Texture2D frogTex, charTex, wateringCanTex, sickleTex, shovelTex, storeTex, bakeryTex, windmillTex;
 
 int currentMessage = 0;
 float typeTimer = 0.0f;
@@ -84,7 +85,15 @@ int typedChars = 0;
 bool messageComplete = false;
 bool dialogueFinished = false;
 
-// Initialize farm
+bool storeVisible = false;
+Rectangle storeButton = { screenWidth - 50, 10, 32, 32 };
+
+Rectangle windmillButton = { screenWidth - 50, 60, 32, 32 };
+Rectangle bakeryButton = { screenWidth - 50, 110, 32, 32 };
+
+float windmillTimer = 0.0f;
+bool isProcessingFlour = false;
+
 void InitFarm(Inventory *inv)
 {
     inv->wheat = inv->corn = inv->milk = 0;
@@ -93,12 +102,19 @@ void InitFarm(Inventory *inv)
     inv->corn_seed = 2;
     inv->hasWateringCan = false;
     inv->hasSickle = false;
+    inv->flour = 0;
+    inv->bread = 0;
+
 
     for (int r = 0; r < GRID_ROWS; r++)
      {
         for (int c = 0; c < GRID_COLS; c++) 
         {
             Plot *p = &inv->plots[r][c];
+
+            p->isWatered = false;       
+            p->growthTimer = 0.0f;  
+
             if (r == 0) 
             { 
                 p->type = TILE_WHEAT; 
@@ -129,7 +145,7 @@ Shovel shovel;
 
 void InitWateringCan()
 {
-    wateringCan.position = (Vector2){ 700, 150 };  // Position it somewhere on the farm
+    wateringCan.position = (Vector2){ 745, 160 };  
     wateringCan.isVisible = true;
     float scale = 32.0f / wateringCanTex.width;
     int actualWidth = (int)(wateringCanTex.width * scale);
@@ -139,7 +155,7 @@ void InitWateringCan()
 
 void InitSickle()
 {
-    sickle.position = (Vector2){ 700, 200 };  // Position it somewhere on the farm
+    sickle.position = (Vector2){ 745, 210 };
     sickle.isVisible = true;
     float scale = 32.0f / sickleTex.width;
     int actualWidth = (int)(sickleTex.width * scale);
@@ -149,7 +165,7 @@ void InitSickle()
 
 void InitShovel()
 {
-    shovel.position = (Vector2){ 700, 250 };  // Position it somewhere on the farm
+    shovel.position = (Vector2){ 745, 260 }; 
     shovel.isVisible = true;
     float scale = 32.0f / shovelTex.width;
     int actualWidth = (int)(shovelTex.width * scale);
@@ -210,13 +226,11 @@ void HarvestPlot(Plot *plot, Inventory *inv)
 
         if(plot->type == TILE_WHEAT)
         {
-            inv->wheat_seed++;
             inv->wheat++;
         }
-
+ 
         if(plot->type == TILE_CORN)
         {
-            inv->corn_seed++;
             inv->corn++; 
         }
     }
@@ -243,9 +257,10 @@ void Plant(Plot *plot, Inventory *inv, TileType selectedCrop)
 
 void WaterPlot(Plot *plot)
 {
-    if (plot->type != TILE_EMPTY && plot->status == STATUS_WAITING)
+    if (plot->type != TILE_EMPTY && plot->status == STATUS_WAITING && !plot->isWatered)
     {
-        plot->status = STATUS_READY;
+        plot->isWatered = true;
+        plot->growthTimer = 10.0f; 
     }
 }
 
@@ -254,7 +269,6 @@ void HandleWateringInteraction(Player *player, Inventory *inv)
     if (!inv->hasWateringCan) 
         return;
     
-    // Check which plot the player is near
     for (int r = 0; r < GRID_ROWS; r++)
     {
         for (int c = 0; c < GRID_COLS; c++)
@@ -264,7 +278,6 @@ void HandleWateringInteraction(Player *player, Inventory *inv)
             
             Rectangle tileRect = { x, y, TILE_SIZE, TILE_SIZE };
             
-            // Check if player is close to this tile
             if (CheckCollisionRecs(player->bounds, tileRect))
             {
                 WaterPlot(&inv->plots[r][c]);
@@ -307,8 +320,7 @@ void HandleSickleInteraction(Player *player, Inventory *inv)
 {
     if (!inv->hasSickle) 
         return;
-    
-    // Check which plot the player is near
+
     for (int r = 0; r < GRID_ROWS; r++)
     {
         for (int c = 0; c < GRID_COLS; c++)
@@ -318,7 +330,6 @@ void HandleSickleInteraction(Player *player, Inventory *inv)
             
             Rectangle tileRect = { x, y, TILE_SIZE, TILE_SIZE };
             
-            // Check if player is close to this tile
             if (CheckCollisionRecs(player->bounds, tileRect))
             {
                 HarvestPlot(&inv->plots[r][c], inv);
@@ -375,7 +386,6 @@ void HandleShovelInteraction(Player *player, Inventory *inv)
 
             if (CheckCollisionRecs(player->bounds, tileRect))
             {
-                // Player presses 1 to plant wheat, 2 for corn
                 if (IsKeyPressed(KEY_ONE) && inv->wheat_seed > 0)
                 {
                     float cropScale = (float)TILE_SIZE / wheatTex.width;
@@ -396,9 +406,13 @@ void HandleShovelInteraction(Player *player, Inventory *inv)
     }
 }
 
+float mooTimer = 0.0f;
+bool showMoo = false;
+
 void FeedCowsInteraction(Player *player, Inventory *inv)
 {
-    if (inv->wheat < 1) return;
+    if (inv->wheat < 1) 
+        return;
 
     for (int r = 0; r < GRID_ROWS; r++)
     {
@@ -412,8 +426,17 @@ void FeedCowsInteraction(Player *player, Inventory *inv)
 
                 if (CheckCollisionRecs(player->bounds, tileRect))
                 {
-                    inv->wheat--;
-                    inv->milk++;
+                    Plot *p = &inv->plots[r][c];
+
+                    if (p->type == TILE_COW)
+                    {
+                        inv->wheat--;
+                        inv->milk++;
+
+                        showMoo = true;
+                        mooTimer = 1.5f; 
+                    }
+
                     return;
                 }
             }
@@ -421,23 +444,19 @@ void FeedCowsInteraction(Player *player, Inventory *inv)
     }
 }
 
-// Draw the farm grid
 void DrawFarm(Inventory *inv) 
 {
     for (int r = 0; r < GRID_ROWS; r++) 
     {
         for (int c = 0; c < GRID_COLS; c++) 
         {
-            // Position of the tile
             int x = 50 + c * TILE_SIZE;
             int y = 50 + r * TILE_SIZE;
             Vector2 tilePos = { (float)x, (float)y };
 
-            // Draw the tile background (e.g., dirt)
             float tileScale = (float)TILE_SIZE / tileBgTex.width;
             DrawTextureEx(tileBgTex, tilePos, 0.0f, tileScale, WHITE);
 
-            // Get the crop texture based on plot type
             Plot *p = &inv->plots[r][c];
             Texture2D tex;
             switch (p->type) 
@@ -476,7 +495,6 @@ void DrawFarm(Inventory *inv)
                 }
             }
 
-            // Draw the crop on top of the tile
             float cropScale = (float)TILE_SIZE / tex.width;
             DrawTextureEx(tex, tilePos, 0.0f, cropScale, WHITE);
         }
@@ -486,13 +504,11 @@ void DrawFarm(Inventory *inv)
         DrawText("[1] Plant Wheat   [2] Plant Corn", 50, 320, 20, DARKGRAY);
 }
 
-// Draw inventory bar
 void DrawInventory(Inventory *inv) 
 {
     int iconSize = 24;
     int x = 50, y = 10;
 
-    // Resource icons + values
     DrawTextureEx(wheatTex, (Vector2){x, y}, 0.0f, (float)iconSize / wheatTex.width, WHITE);
     DrawText(TextFormat("%d", inv->wheat), x + 30, y + 4, 20, DARKGREEN);
 
@@ -551,11 +567,55 @@ void DrawInventory(Inventory *inv)
     else
         InitShovel();
 
-    // Seed inventory
-    x += 95;
-    y = 10;
+    if(inv-> hasShovel == false && inv-> hasWateringCan == false && inv-> hasSickle == false)
+    {
+        x = 370;
+    }
+    else
+    {
+        x += 95;
+        y = 10;
+    }
+
     DrawTextureEx(seedIcon, (Vector2){x, y}, 0.0f, (float)iconSize / seedIcon.width, WHITE);
-    DrawText(TextFormat("wheat: %d\ncorn: %d", inv->wheat_seed, inv->corn_seed), x + 30, y + 4, 20, PINK);
+    DrawText(TextFormat("wheat: %d\ncorn: %d", inv->wheat_seed, inv->corn_seed), x + 30, y + 4, 20, PINK); 
+
+    float shop_x = screenWidth - 50;
+    float shop_y = 10;  
+
+    DrawTextureEx(storeTex, (Vector2){shop_x, shop_y}, 0.0f, (float)40 / storeTex.width, WHITE);
+
+    if (storeVisible) 
+    {
+        Rectangle popup = {screenWidth / 2 - 100, screenHeight / 2 - 100, 290, 265};
+
+        float scaleX = popup.width / (float)storeBgTex.width;
+        float scaleY = popup.height / (float)storeBgTex.height;
+
+        DrawTextureEx(storeBgTex, (Vector2){popup.x, popup.y}, 0.0f, scaleX < scaleY ? scaleX : scaleY, WHITE);
+
+        DrawText("Buy:", popup.x + 10, popup.y + 10, 20, BLACK);
+        DrawText("[1] Buy Wheat Seed (2$)", popup.x + 10, popup.y + 40, 20, DARKGREEN);
+        DrawText("[2] Buy Corn Seed (3$)", popup.x + 10, popup.y + 70, 20, DARKGREEN);
+
+        DrawText("Sell:", popup.x + 10, popup.y + 100, 20, BLACK);
+        DrawText("[3] Sell milk (3$)", popup.x + 10, popup.y + 130, 20, DARKGREEN);
+        DrawText("[4] Sell wheat (1$)", popup.x + 10, popup.y + 160, 20, DARKGREEN);
+        DrawText("[5] Sell corn (2$)", popup.x + 10, popup.y + 190, 20, DARKGREEN);
+    }
+
+    float iconScaleWindmill = 35.0f / windmillTex.width;
+    float iconScaleBakery = 40.0f / bakeryTex.width;
+
+    DrawTextureEx(windmillTex, (Vector2){windmillButton.x, windmillButton.y}, 0.0f, iconScaleWindmill, WHITE);
+    DrawTextureEx(bakeryTex, (Vector2){bakeryButton.x, bakeryButton.y}, 0.0f, iconScaleBakery, WHITE);    
+
+    x += 20;
+    y += 60;
+    DrawText(TextFormat("Flour: %d", inv->flour), x, y + 4, 20, ORANGE);
+
+    y += 20;
+    DrawText(TextFormat("Bread: %d", inv->bread), x, y + 4, 20, ORANGE);
 }
 
 const char *frogMessages[MAX_MESSAGES] = {
@@ -568,13 +628,12 @@ void UpdateFrogDialogue()
 {
     float delta = GetFrameTime();
 
-    // Typewriter animation
     if (!messageComplete) 
     {
         typeTimer += delta;
 
         if (typeTimer >= 0.05f) 
-        { // Adjust speed here
+        { 
             typedChars++;
             typeTimer = 0.0f;
 
@@ -585,7 +644,6 @@ void UpdateFrogDialogue()
         }
     }
 
-    // Proceed to next message when user presses E
     if (messageComplete && IsKeyPressed(KEY_E)) 
     {
         currentMessage++;
@@ -612,7 +670,6 @@ void DrawFrogDialogue()
 
     DrawTextureEx(frogTex, (Vector2){x, y}, 0.0f, scale, WHITE);
 
-    // Draw speech bubble
     DrawRectangle(x - 20, 170, 300, 25, WHITE);
 
     char buffer[256];
@@ -632,7 +689,7 @@ void InitPlayer()
     player.position = (Vector2){ 500, 200};
     player.speed = (Vector2){ 8.0f, 0.0f };
     
-    float charScale = 32.0f / charTex.width; // or whatever width you want
+    float charScale = 32.0f / charTex.width; 
     float visualWidth = charTex.width * charScale;
     float visualHeight = charTex.height * charScale;
 
@@ -702,6 +759,11 @@ int main()
     before_waterTex = LoadTexture("assets/plant_not_ready.png");
     sickleTex = LoadTexture("assets/sickle.png");
     shovelTex = LoadTexture("assets/shovel.png");
+    storeTex = LoadTexture("assets/store.png");
+    storeBgTex = LoadTexture("assets/store_background.jpeg");  
+    windmillTex = LoadTexture("assets/windmill.png"); 
+    bakeryTex = LoadTexture("assets/bakery.png"); 
+
 
     GameScreen screen = LOGO;
 
@@ -714,7 +776,7 @@ int main()
     InitSickle();
     InitShovel();
 
-    while (!WindowShouldClose()) //ESC to end
+    while (!WindowShouldClose()) 
     {
         switch(screen) 
         {
@@ -724,19 +786,16 @@ int main()
                 
                 if (framesCounter > 180) 
                 {
-                    screen = TITLE;    // Change to TITLE screen after 3 seconds
+                    screen = TITLE;   
                     framesCounter = 0;
                 }
 
                break; 
             } 
             case TITLE: 
-            {
-                // Update TITLE screen data here!
-                
+            {               
                 framesCounter++;
                 
-                // LESSON 03: Inputs management (keyboard, mouse)
                 if (IsKeyPressed(KEY_ENTER)) 
                     screen = GAMEPLAY;
 
@@ -785,6 +844,27 @@ int main()
                     HandleWateringInteraction(&player, &farm);
                 }
 
+                float deltaTime = GetFrameTime();
+
+                for (int r = 0; r < GRID_ROWS; r++)
+                {
+                    for (int c = 0; c < GRID_COLS; c++)
+                    {
+                        Plot *p = &farm.plots[r][c];
+
+                        if (p->isWatered && p->status == STATUS_WAITING)
+                        {
+                            p->growthTimer -= deltaTime;
+                            if (p->growthTimer <= 0.0f)
+                            {
+                                p->status = STATUS_READY;
+                                p->isWatered = false;
+                                p->growthTimer = 0.0f;
+                            }
+                        }
+                    }
+                }
+
                 if (IsKeyPressed(KEY_Q) && farm.hasWateringCan)
                 {
                     farm.hasWateringCan = false;
@@ -807,23 +887,128 @@ int main()
                     farm.hasSickle = false;
                 }
 
-                if (IsKeyPressed(KEY_F)) // Feed cows
+                if (IsKeyPressed(KEY_F))
                 {
                     FeedCowsInteraction(&player, &farm);
+                }
+
+                if (showMoo)
+                {
+                    mooTimer -= GetFrameTime();
+                    if (mooTimer <= 0)
+                    {
+                        showMoo = false;
+                    }
+                }
+
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) 
+                {
+                    Vector2 mousePos = GetMousePosition();
+
+                    if (CheckCollisionPointRec(mousePos, storeButton))
+                        storeVisible = !storeVisible;
+                    if (CheckCollisionPointRec(mousePos, windmillButton)) 
+                        screen = WINDMILL;
+                    if (CheckCollisionPointRec(mousePos, bakeryButton)) 
+                        screen = BAKERY;
+                }
+
+                if (storeVisible) 
+                {
+                    if (IsKeyPressed(KEY_ONE) && farm.money >= 2) 
+                    {
+                        farm.money -= 2;
+                        farm.wheat_seed++;
+                    }
+
+                    if (IsKeyPressed(KEY_TWO) && farm.money >= 3) 
+                    {
+                        farm.money -= 3;
+                        farm.corn_seed++;
+                    }
+
+                    if (IsKeyPressed(KEY_THREE) && farm.milk >= 1) 
+                    {
+                        farm.money += 2;
+                        farm.milk--;
+                    }
+
+                    if (IsKeyPressed(KEY_FOUR) && farm.wheat >= 1) 
+                    {
+                        farm.money += 1;
+                        farm.wheat--;
+                    }
+
+                    if (IsKeyPressed(KEY_FIVE) && farm.corn >= 1) 
+                    {
+                        farm.money += 2;
+                        farm.corn--;
+                    }
                 }
 
                 if (IsKeyPressed(KEY_ENTER)) 
                     screen = ENDING;
 
                 break;
-            } 
-            case ENDING: 
+            }
+            case WINDMILL:
             {
-                // Update END screen data here!
-                
+                ClearBackground(RAYWHITE);
+
+                DrawText("Windmill", 20, 20, 40, DARKBROWN);
+
+                DrawTextureEx(windmillTex, (Vector2){screenWidth - 100, 20}, 0.0f, 2.0f, WHITE);
+
+                DrawText(TextFormat("Wheat: %d", farm.wheat), 50, 80, 20, DARKGREEN);
+                DrawText(TextFormat("Flour: %d", farm.flour), 50, 110, 20, BROWN);
+
+                if (!isProcessingFlour) {
+                    DrawText("Press [1] to convert 1 Wheat to Flour", 50, 160, 20, BLACK);
+                    if (IsKeyPressed(KEY_ONE) && farm.wheat >= 1) {
+                        farm.wheat--;
+                        windmillTimer = 10.0f;
+                        isProcessingFlour = true;
+                    }
+                } else {
+                    DrawText("Processing... Please wait", 50, 160, 20, DARKGRAY);
+                    windmillTimer -= GetFrameTime();
+                    if (windmillTimer <= 0.0f) {
+                        farm.flour++;
+                        isProcessingFlour = false;
+                    }
+                }
+
+                DrawText("Press [B] to go back", 50, 250, 20, GRAY);
+                if (IsKeyPressed(KEY_B)) screen = GAMEPLAY;
+
+                break;
+            }
+            case BAKERY:
+            {
+                ClearBackground(RAYWHITE);
+
+                DrawText("Bakery", 20, 20, 40, DARKBROWN);
+
+                DrawTextureEx(bakeryTex, (Vector2){screenWidth - 100, 20}, 0.0f, 2.0f, WHITE);
+
+                DrawText(TextFormat("Flour: %d", farm.flour), 50, 80, 20, BROWN);
+                DrawText(TextFormat("Bread: %d", farm.bread), 50, 110, 20, DARKGRAY);
+
+                DrawText("Press [1] to bake Bread (1 Flour)", 50, 160, 20, BLACK);
+                if (IsKeyPressed(KEY_ONE) && farm.flour >= 1) {
+                    farm.flour--;
+                    farm.bread++;
+                }
+
+                DrawText("Press [B] to go back", 50, 250, 20, GRAY);
+                if (IsKeyPressed(KEY_B)) screen = GAMEPLAY;
+
+                break;
+            }
+            case ENDING: 
+            {             
                 framesCounter++;
                 
-                // LESSON 03: Inputs management (keyboard, mouse)
                 if (IsKeyPressed(KEY_ENTER)) 
                     screen = TITLE;
 
@@ -832,7 +1017,6 @@ int main()
             default: break;
         }
 
-        // Draw full window background
         float bgScaleX = (float)GetScreenWidth() / windowBgTex.width;
         float bgScaleY = (float)GetScreenHeight() / windowBgTex.height;
         DrawTextureEx(windowBgTex, (Vector2){ 0, 0 }, 0.0f, bgScaleX, WHITE);
@@ -846,7 +1030,7 @@ int main()
             {
                 case LOGO:
                 {
-                    float scale = 0.5f; // 50% of original size
+                    float scale = 0.5f; 
 
                     DrawTextureEx(texLogoScreen, (Vector2){ 0, 0 }, 0.0f, 
                     (float)GetScreenWidth() / texLogoScreen.width, WHITE);
@@ -866,7 +1050,6 @@ int main()
                 } 
                 case GAMEPLAY:
                 {
-                    // TODO: Draw GAMEPLAY screen here!
                     DrawFarm(&farm);
                     DrawInventory(&farm);
                     
@@ -878,18 +1061,58 @@ int main()
                     DrawSickle(&sickle);
                     DrawShovel(&shovel);
 
+                    if (showMoo)
+                    {
+                        DrawText("Moo!", screenWidth / 2 - 20, screenHeight / 2 - 40, 30, DARKBROWN);
+                    }
+
                     break;
                 } 
+                case WINDMILL:  
+                {
+                    ClearBackground(RAYWHITE);
+
+                    DrawText("Windmill", 20, 20, 40, DARKBROWN);
+
+                   DrawTextureEx(windmillTex, (Vector2){screenWidth - 200, 100}, 0.0f, (float) 150 / windmillTex.width, WHITE);
+
+                    DrawText(TextFormat("Wheat: %d", farm.wheat), 50, 80, 20, DARKGREEN);
+                    DrawText(TextFormat("Flour: %d", farm.flour), 50, 110, 20, BROWN);
+
+                    if (!isProcessingFlour) {
+                        DrawText("Press [1] to convert 1 Wheat to Flour", 50, 160, 20, BLACK);
+                    } else {
+                        DrawText("Processing... Please wait", 50, 160, 20, DARKGRAY);
+                    }
+
+                    DrawText("Press [B] to go back", 50, 250, 20, GRAY);
+                    break;
+                }
+                case BAKERY:
+                {  
+                    ClearBackground(RAYWHITE);
+
+                    DrawText("Bakery", 20, 20, 40, DARKBROWN);
+
+                    DrawTextureEx(bakeryTex, (Vector2){screenWidth - 200, 100}, 0.0f, (float) 100 / bakeryTex.width, WHITE);
+
+                    DrawText(TextFormat("Flour: %d", farm.flour), 50, 80, 20, BROWN);
+                    DrawText(TextFormat("Bread: %d", farm.bread), 50, 110, 20, DARKGRAY);
+
+                    DrawText("Press [1] to bake Bread (1 Flour)", 50, 160, 20, BLACK);
+
+                    DrawText("Press [B] to go back", 50, 250, 20, GRAY);
+                    break;
+                }
                 case ENDING:
                 {
-                    DrawText("Thank you for playing, boss!", 50, 50, 50, PINK);
+                    DrawText("Thank you for playing, boss!", 48, 50, 50, PINK);
 
                     if ((framesCounter/30)%2 == 0) DrawText("PRESS [ENTER] TO PLAY AGAIN", GetScreenWidth()/2 - MeasureText("PRESS [ENTER] TO PLAY AGAIN", 20)/2, GetScreenHeight()/2 + 80, 20, GRAY);
                     break;
                 } 
                 default: break;
             }
-
         EndDrawing();
     }
 
@@ -910,7 +1133,10 @@ int main()
     UnloadTexture(before_waterTex);
     UnloadTexture(sickleTex);
     UnloadTexture(shovelTex);
-    //de dat unload la tot
+    UnloadTexture(storeTex);
+    UnloadTexture(storeBgTex);
+    UnloadTexture(windmillTex);
+    UnloadTexture(bakeryTex);
 
     CloseWindow();
     return 0;
